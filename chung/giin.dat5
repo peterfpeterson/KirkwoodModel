@@ -1,0 +1,12 @@
+GaInAsSb                            elem * 4 A_1-x B_x C_1-y D_y
+0.5   0.                            x,y
+2  2  2                             Lx Ly Lz
+1.4368  1.6096  1.0000   1.0000     radius * 4
+69.735  114.82  74.9216  121.75     mass *4
+96.0    0.0   97.0    0.0       alpha from A sublattice (AC)(AD)(BC)(BD)
+96.0   97.0    0.0    0.0       alpha from B sublattice (CA)(CB)(DA)(DB)
+10.0    0.     0.     0.        beta from A sublattice (ACC)(ACD)(ADC)(ADD)
+ 6.0    0.     0.     0.        beta from A sublattice (BCC)(BCD)(BDC)(BDD)
+10.0    7.746  7.746  6.0       beta from B sublattice (CAA)(CAB)(CBA)(CBB)
+ 0.     0.     0.     0.        beta from b sublattice (DAA)(DAB)(DBA)(DBB)
+1.     1                        lambda(0:Keat,1:Kirk),control(0:Vegard,1:diff)

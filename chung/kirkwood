@@ -1,0 +1,293 @@
+#!/usr/bin/env perl
+######################################################################
+# Created April 16, 2002 by Peter Peterson
+######################################################################
+use strict;
+my($debug)=0;
+my($inprefix)="kirkwood";
+my($options)='';
+my($temperature);
+my($cmd);
+my($prefix);
+my($disclude);
+my(%type);
+my($numseeds)=10;
+my(@seeds);
+my($keep)=0;
+
+use Getopt::Long;
+use Pod::Usage;
+
+GetOptions('d'          => sub{ $debug=1;                            },
+           'debug=i'    => sub{ $debug=$_[1];                        },
+           'h'          => sub{ pod2usage(-verbose=>0, -exitval=>1); },
+           'help'       => sub{ pod2usage(-verbose=>2, -exitval=>0); },
+           't=i'        => sub{ $temperature=$_[1];                  },
+           'no|n=i'     => sub{ $disclude=$_[1];                     },
+           'r=i'        => sub{ $numseeds=$_[1];                     },
+           'keep|k'     => sub{ $keep=$_[1];                         },
+          );
+
+if(@ARGV==1){
+  $prefix=$ARGV[0];
+}else{
+  pod2usage(-verbose=>0, -exitval=>2, -output=>\*STDERR,
+            -msg=>"ERROR: Must specify a prefix");
+}
+
+if($debug){
+  print "********** DEBUG MODE: NOTHING EXECUTED **********\n";
+  print "* debug       = $debug\n";
+  print "* inprefix    = $inprefix\n";
+  print "* temperature = $temperature\n";
+  print "* keep        = $keep\n";
+  print "* prefix      = $prefix\n";
+  print "* disclude    = $disclude\n";
+}
+
+if($temperature){
+  inittypes($prefix);
+  getseeds($prefix);
+}else{
+  initseeds($numseeds);
+}
+
+(print "**************************************************\n")if($debug);
+
+foreach (@seeds){
+  if($temperature){
+    therm($prefix,$_,$temperature);
+  }else{
+    static($prefix,$_);
+    eigen($prefix,$_);
+  }
+}
+if($temperature){
+  pdf($prefix,$temperature);
+}
+
+######################################################################
+sub static{
+  my($prefix,$seed)=@_;
+  (print "** STATIC( $prefix,  $seed)\n")if($debug);
+
+  my($forfile)=$inprefix.$seed.".insta";
+  my($infile) =$prefix.".dat";
+  my($outfile)=$prefix."_".$seed.".sta";
+
+  my($text)="static $infile  $outfile\n"
+    ."$seed   1.d-20   1.d-8\n";
+
+  (die "$infile does not exist\n")unless(-e $infile);
+  (return)if(-e $outfile);
+
+  makefile($forfile,$text);
+  run("allsig < $forfile");
+  remove($forfile);
+}
+
+sub eigen{
+  my($prefix,$seed)=@_;
+  (print "** EIGEN ( $prefix,  $seed)\n")if($debug);
+
+  my($forfile)=$inprefix.$seed.".ineig";
+  my($infile) =$prefix."_".$seed.".sta";
+  my($outfile)=$prefix."_".$seed.".eig";
+
+  my($text)="eigen $infile  $outfile\n"
+    ."0\n";
+
+  (die "$infile does not exist\n")unless(-e $infile);
+  (return)if(-e $outfile);
+
+  makefile($forfile,$text);
+  run("allsig < $forfile");
+  remove($forfile);
+}
+
+sub therm{
+  my($prefix,$seed,$temperature)=@_;
+  (print "** THERM( $prefix, $seed, $temperature"."K)\n")if($debug);
+
+  my($forfile)=$inprefix.$seed."inthe";
+  my($infile1) =$prefix."_".$seed.".sta";
+  my($infile2) =$prefix."_".$seed.".eig";
+  my($outfile)=$prefix."_".$seed.".".$temperature."K";
+
+  my($text)="thermal $infile1 $infile2  $outfile\n"
+    ."$temperature\n";
+
+  (die "$infile1 does not exist\n")unless(-e $infile1);
+  (die "$infile2 does not exist\n")unless(-e $infile2);
+  (return)if(-e $outfile);
+
+  makefile($forfile,$text);
+  run("allsig < $forfile");
+  remove($forfile);
+}
+
+sub pdf{
+  my($prefix,$temperature)=@_;
+  (print "** PDF  ( $prefix, $temperature"."K)\n")if($debug);
+
+  my($forfile)=$inprefix.$temperature.".inp";
+  my($outfile)=$prefix."_".$temperature."K.";
+  my($globstring)=$prefix."_*.".$temperature."K";
+  my(@infiles)=(glob($globstring));
+
+  my($text)=@infiles."\n";
+  foreach(@infiles){
+    $text.="$_\n";
+  }
+  $text.="n\n";
+
+  foreach (qw( r 11 12 13 14 22 23 24 33 34 44 )){
+    (next)if(($disclude && /$disclude/) || (-e $outfile));
+    makefile($forfile,$text."$_\n"."$outfile$type{$_}\n");
+    run("allppdf < $forfile");
+    remove($forfile);
+  }
+}
+
+######################################################################
+sub makefile{
+  my($filename,$text)=@_;
+  if($debug){
+    if($debug>1){
+      print "MAKEFILE($filename,";
+      if($debug>2){
+        print "\n--\n".$text."--\n";
+      }else{
+        print " text)\n";
+      }
+    }
+  }else{
+    open(FILE,">$filename") || die "Could not open $filename: $!";
+    print FILE $text;
+    close(FILE) || die "Could not close $filename: $!";
+  }
+}
+
+sub remove{
+  my($file)=@_;
+  if(-e $file){
+    (return)if($keep);
+    if($debug){
+      (print "REMOVE($file)\n")if($debug>1);
+    }else{
+      unlink($file) || warn "Could not remove $file";
+    }
+  }
+}
+
+sub run{
+  my($cmd)=@_;
+  if($debug){
+    (print "EXEC($cmd)\n")if($debug>1);
+  }else{
+    system($cmd);
+  }
+}
+
+sub getseeds{
+  my($prefix)=@_;
+  (print "* GETSEEDS ($prefix): ")if($debug);
+
+  my($globstring)=$prefix."_*.eig";
+  my(@files)=(glob($globstring));
+  foreach(@files){
+    #print "$_ -> ";
+    s/$prefix\Q_\E(\d+)\Q.eig/$1/;
+    push(@seeds,$_);
+    (print "$_ ")if($debug);
+  }
+  (print "\n")if($debug);
+}
+
+sub initseeds{
+  my($num)=@_;
+  (print "* INITSEEDS($num): ")if($debug);
+  my($rand);
+
+  for( my($int)=0 ; $int<$num ; $int++ ){
+    $rand=sprintf("%d",rand()*1000);
+    if($rand<100){
+      $int--;
+    }else{
+      push(@seeds,$rand);
+      (print "$rand ")if($debug);
+    }
+  }
+  (print "\n")if($debug);
+}
+
+sub inittypes{
+  my($prefix)=@_;
+  (print "* INITTYPES($prefix):  ")if($debug);
+  open(FILE,"$prefix.dat") || die "Could not open $prefix.dat: $!";
+  my($material)=<FILE>;
+  close(FILE) || die "Could not close $prefix.dat: $!";
+  $material=~s/(\S+).+\n/$1/;
+
+  my($one,$two,$three,$four)=($material,$material,$material,$material);
+  $one   =~ s/(.{2}).*/$1/;     $one   =~ s/(.+)/\L$1/; $one   =~ s/\s+//;
+  $two   =~ s/.{2}(.{2}).*/$1/; $two   =~ s/(.+)/\L$1/; $two   =~ s/\s+//;
+  $three =~ s/.{4}(.{2}).*/$1/; $three =~ s/(.+)/\L$1/; $three =~ s/\s+//;
+  $four  =~ s/.{6}(.{2}).*/$1/; $four  =~ s/(.+)/\L$1/; $four  =~ s/\s+//;
+  if($debug){
+    if($disclude==1){
+      print "($one) $two $three $four\n";
+    }elsif($disclude==2){
+      print "$one ($two) $three $four\n";
+    }elsif($disclude==3){
+      print "$one $two ($three) $four\n";
+    }elsif($disclude==4){
+      print "$one $two $three ($four)\n";
+    }
+  }
+
+
+  %type=(
+         11=>$one.$one, 12=>$one.$two, 13=>$one.$three,   14=>$one.$four,
+                        22=>$two.$two, 23=>$two.$three,   24=>$two.$four,
+                                       33=>$three.$three, 34=>$three.$four,
+                                                          44=>$four.$four,
+         'r'=>'all',
+        );
+  foreach (keys %type){
+    $type{$_}=$type{$_}.".rdf";
+  }
+  $type{'p'}='pdf';
+
+  if($debug>1){
+    foreach (keys %type){
+      print "type($_)=$type{$_}\n";
+    }
+  }
+
+}
+
+######################################################################
+__END__
+
+=head1 NAME
+
+kirkwood - A Perl wrapper around the J.S.Chung kirkwood model code.
+
+=head1 SYNOPSIS
+
+kirkwood [options] <prefix>
+
+  Options:
+    d          set debug level 1
+    debug      set (integer) debug level
+    h          breif help message
+    help       full documentation
+    t          temperature (in Kelvin)
+    no|n       partials to not calculate (single integer)
+    r          number of random number seeds
+    keep|k     keep the input files written
+
+=head1 OPTIONS
+
+=over

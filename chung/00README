@@ -1,0 +1,35 @@
+======================================================================
+allsig/allppdf                                              01-24-2002
+======================================================================
+
+The programs in the package were originally written by Jean Chung with
+the exception of convolute (written by Thomas Proffen). While the
+calculation has remained the same the output files (from allppdf) have
+been altered to work with kuplot while the input method for allsig has
+been changed to allow for easier batch processing.
+
+======================================================================
+
+allsig and allppdf are programs that use the Kirkwood potential model
+to calculate partial pdfs for Zinc-Blende (ZnS) crystals for ternary
+alloys. This is done by minimizing the energy of the system and
+solving the dynamical matrix. The process is done in four steps:
+
+1) allsig static - minimize the energy using static displacements
+
+2) allsig eigen - find the eigenvalues of the dynamical matrix
+
+3) allsig thermal - find the peak width distributions for a given
+temperature
+
+4) allppdf - calculate the neutron or x-ray pdf, rdf, differential
+rdf, or partial rdf. This step can combine several allsig thermal
+calculations. The pdfs can (in principle) be convoluted with a sinc
+function to account for a finite measurement range using
+convolute. However, this should only be done on the pdf and not any of
+the rdfs.
+
+An alternative to calculating the pdfs is to calculate the length
+distributions. This is done with the program lendis. 
+
+======================================================================

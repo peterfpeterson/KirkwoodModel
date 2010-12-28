@@ -1,0 +1,7 @@
+======================================================================
+v1.2
+
+allppdf - When reading in more than one 'thermal' file the error
+          checking that they can be combined now works.
+        - Fixed bug that did not allow 34 to be selected for partial
+          rdf calculation
